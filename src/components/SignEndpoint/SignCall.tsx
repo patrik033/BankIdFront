@@ -1,57 +1,87 @@
 import { useState, useEffect } from 'react';
 //import RenderDataComponent from './RenderDataComponent';
 import Navbar from '../Navbar/Navbar';
-import RenderDataComponent from '../AuthEndpoint/RenderDataComponent';
+import Container from 'react-bootstrap/Container';
+import Row from 'react-bootstrap/Row';
+import Col from 'react-bootstrap/Col';
+import Button from 'react-bootstrap/Button';
+import Form from 'react-bootstrap/Form';
+import "./../../CustomStyles/Bootstrap.css"
 
 
-interface BankIdAuth {
-  orderRef: string;
-  autoStartToken: string;
-  qrStartToken: string;
-  qrStartSecret: string;
-}
+
 
 const SignCall = () => {
-  const [data, setData] = useState<BankIdAuth>({ orderRef: '', autoStartToken: '', qrStartToken: '', qrStartSecret: '' } as BankIdAuth);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [accept, setAccept] = useState<boolean>(false);
+
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const request = {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ endUserIp: '192.168.0.1' }),
-        };
-        const response = await fetch('https://localhost:7080/api/BankAuth', request);
-        console.log(response)
-        if (!response.ok) {
-          console.error('API request failed:', response.status, response.statusText);
-
-          // Handle response content for debugging purposes
-          const responseContent = await response.text();
-          console.error('Response content:', responseContent);
-
-          //throw new Error('API request failed');
-        }
-
-
-        const responseData = await response.json();
-        setData(responseData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      }
-    };
-
-    fetchData();
+    fetch('https://localhost:7080/api/Sign')
+      .then(response => response.blob())
+      .then(blob => setPdfBlob(blob))
+      .catch(error => {
+        console.error('Error fetching PDF file:', error);
+      });
   }, []);
+
+  const handleDownload = () => {
+    if (pdfBlob) {
+      // Create a URL for the blob
+      const blobURL = URL.createObjectURL(pdfBlob);
+
+      // Open a new window with the PDF blob URL
+      window.open(blobURL, '_blank');
+
+      // Clean up the blob URL
+      URL.revokeObjectURL(blobURL);
+    }
+  };
+
+  const handleAccept = () => {
+    if(accept === true)
+    {
+      setAccept(false)
+    }
+    else
+    {
+      setAccept(true)
+    }
+  }
 
   return (
     <>
       <Navbar />
-      {data ? <RenderDataComponent data={data} orderTime={new Date()} /> : <p>Loading...</p>}
+      <div>
+        <Container>
+          <Row>
+            <Col >
+              <Button variant="primary" size="lg"  active onClick={handleDownload}>View file</Button>
+            </Col>
+           <div style={{float:"right"}}>
+            Accept the contents of the file to sign it
+           </div>
+            <Col>
+            </Col>
+          </Row>
+          <Row className='mt-3'>
+            <Col>
+              <Form.Check
+                checked={accept}
+                bsPrefix='form-check-input[type="checkbox"]]'
+                onChange={handleAccept}
+                type='checkbox'
+                className='mb-3 border-dark'
+                label="Check to accept the contents of the document"
+              />
+            </Col>
+          </Row>
+        </Container>
+      </div>
     </>
-  )
+  );
 };
+
 
 
 

@@ -30,7 +30,6 @@ const SignNavigation = () => {
 
     return (
         <div>
-            hej
             <Navbar />
             <Container>
                 <Row>

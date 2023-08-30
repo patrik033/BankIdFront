@@ -5,6 +5,7 @@ import Col from 'react-bootstrap/Col';
 import Button from 'react-bootstrap/Button';
 import { useNavigate } from 'react-router-dom';
 
+
 import { useEffect, useState } from "react";
 
 const AuthNavigation = () => {
@@ -32,13 +33,13 @@ const AuthNavigation = () => {
 
     return (
         <div>
-            hej
             <Navbar />
             <Container>
                 <Row>
                     <Col>
                         <Button variant="primary" size="lg" active onClick={authorize}>Autentisera</Button>
                     </Col>
+                   
                 </Row>
             </Container>
         </div>
