@@ -8,14 +8,49 @@ import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import "./../../CustomStyles/Bootstrap.css"
 import { pdfjs, Document } from 'react-pdf';
+import RenderDataComponentSigner from './RenderDataComponentSigner';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/legacy/build/pdf.worker.min.js`;
+
+
+
+interface BankIdAuth {
+  orderRef: string;
+  autoStartToken: string;
+  qrStartToken: string;
+  qrStartSecret: string;
+}
+
+interface PdfMetadata {
+  Author: string;
+  CreationDate: string;
+  Creator: string;
+  EncryptFilterName: string | null;
+  IsAcroFormPresent: boolean;
+  IsCollectionPresent: boolean;
+  IsLinearized: boolean;
+  IsSignaturesPresent: boolean;
+  IsXFAPresent: boolean;
+  Language: string;
+  ModDate: string;
+  PDFFormatVersion: string;
+  Producer: string;
+}
+
+// interface SignRequest {
+//   endUserIp: string;
+//   requirement?: object;
+//   userVisibleData: string;
+//   userNonVisibleData?: string;
+//   userVisibleDataFormat?: string;
+// }
 
 const SignCall = () => {
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [accept, setAccept] = useState<boolean>(false);
   const [metadata, setMetadata] = useState(null);
-  const [userVisibleData,setUserVisibleData] = useState(null);
+  const [userVisibleData, setUserVisibleData] = useState(null);
+  const [data, setData] = useState<BankIdAuth>({ orderRef: '', autoStartToken: '', qrStartToken: '', qrStartSecret: '' } as BankIdAuth);
 
   useEffect(() => {
     fetch('https://localhost:7080/api/Sign')
@@ -44,52 +79,111 @@ const SignCall = () => {
       setAccept(true)
   }
 
-
-  const fetchData = async () => {
-   
-
-      try {
-        const request = {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ endUserIp: '192.168.0.1', userVisibleData: userVisibleData }),
-        };
-        const response = await fetch('https://localhost:7080/api/Sign', request);
-        
-        if(response.ok){
-          const responseData = await response.json();
-          console.log(responseData)
-        }
-        
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      }
-    
+  const parsePdfMetadata = (metadata: any): PdfMetadata => {
+    return {
+      Author: metadata.Author,
+      CreationDate: metadata.CreationDate,
+      Creator: metadata.Creator,
+      EncryptFilterName: metadata.EncryptFilterName,
+      IsAcroFormPresent: metadata.IsAcroFormPresent,
+      IsCollectionPresent: metadata.IsCollectionPresent,
+      IsLinearized: metadata.IsLinearized,
+      IsSignaturesPresent: metadata.IsSignaturesPresent,
+      IsXFAPresent: metadata.IsXFAPresent,
+      Language: metadata.Language,
+      ModDate: metadata.ModDate,
+      PDFFormatVersion: metadata.PDFFormatVersion,
+      Producer: metadata.Producer,
+    };
   };
 
-  const onDocumentLoadSuccess = async (pdf:any) => {
+
+  const fetchData = async () => {
+
+
+    try {
+      const request = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endUserIp: '192.168.0.1', userVisibleData: userVisibleData, userVisibleDataFormat: "simpleMarkdownV1" }),
+      };
+      const response = await fetch('https://localhost:7080/api/Sign', request);
+
+      const responseData = await response.json();
+      if (response.ok) {
+        console.log(responseData)
+      }
+
+
+      setData(responseData);
+
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+
+  };
+
+  const onDocumentLoadSuccess = async (pdf: any) => {
     setMetadata(await pdf.getMetadata());
   }
 
   useEffect(() => {
     if (metadata) {
-      const encodedTextToUtf8 = encodeURI(metadata.info)
-      const encodedToBase64 = btoa(encodedTextToUtf8)
+
+      console.log(metadata.info)
+      const parsedMetadata = parsePdfMetadata(metadata.info);
+      console.log(parsedMetadata)
+      //const userName = "JohnnyBoy"
+
+   
+
+
+      const message = `# Overview
+      By signing this document, you agree to the following terms and conditions.:
+      
+      ## Document metadata
+      
+      *Author*
+
+      + ${parsedMetadata.Author}.
+
+      *Creation date*
+
+      + ${parsedMetadata.CreationDate}.
+
+      *Language*
+
+      + ${parsedMetadata.Language}.
+
+      *Modification date*
+
+      + ${parsedMetadata.ModDate}.
+
+      ---
+      Have a nice day!
+      ---`;
+
+
+
+      // const encodedTextToUtf8 = encodeURI(some)
+      const encodedToBase64 = btoa(message)
+      console.log(encodedToBase64)
       setUserVisibleData(encodedToBase64)
     }
   }, [metadata])
 
   useEffect(() => {
-    if(userVisibleData &&  accept){
+    if (userVisibleData && accept) {
       fetchData();
     }
-  },[userVisibleData,accept])
- 
-  
+  }, [userVisibleData, accept])
 
 
 
 
+
+  console.log(data)
+  console.log(userVisibleData)
 
 
   return (
@@ -101,6 +195,7 @@ const SignCall = () => {
           </Document>
         </div>
       }
+
       <div>
         <Container>
           <Row>
@@ -126,6 +221,12 @@ const SignCall = () => {
             </Col>
           </Row>
         </Container>
+        {
+          data && accept &&
+          <div style={{ wordBreak: "break-word" }}>
+            <RenderDataComponentSigner data={data} orderTime={new Date()} />
+          </div>
+        }
       </div>
     </>
   );
