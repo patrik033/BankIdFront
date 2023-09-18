@@ -111,7 +111,7 @@ const SignCall = () => {
 
       const responseData = await response.json();
       if (response.ok) {
-        console.log(responseData)
+        //console.log(responseData)
       }
 
 
@@ -130,16 +130,16 @@ const SignCall = () => {
   useEffect(() => {
     if (metadata) {
 
-      console.log(metadata.info)
+
       const parsedMetadata = parsePdfMetadata(metadata.info);
-      console.log(parsedMetadata)
+
       //const userName = "JohnnyBoy"
 
    
 
 
       const message = `# Overview
-      By signing this document, you agree to the following terms and conditions.:
+      By signing this document, you agree to the following contents of the document:
       
       ## Document metadata
       
@@ -167,7 +167,6 @@ const SignCall = () => {
 
       // const encodedTextToUtf8 = encodeURI(some)
       const encodedToBase64 = btoa(message)
-      console.log(encodedToBase64)
       setUserVisibleData(encodedToBase64)
     }
   }, [metadata])
@@ -182,8 +181,8 @@ const SignCall = () => {
 
 
 
-  console.log(data)
-  console.log(userVisibleData)
+  // console.log(data)
+  // console.log(userVisibleData)
 
 
   return (
@@ -222,9 +221,9 @@ const SignCall = () => {
           </Row>
         </Container>
         {
-          data && accept &&
+          data && accept && pdfBlob &&
           <div style={{ wordBreak: "break-word" }}>
-            <RenderDataComponentSigner data={data} orderTime={new Date()} />
+            <RenderDataComponentSigner pdf={pdfBlob}  data={data} orderTime={new Date()} />
           </div>
         }
       </div>
