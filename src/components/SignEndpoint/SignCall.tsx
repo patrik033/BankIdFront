@@ -135,7 +135,7 @@ const SignCall = () => {
 
       //const userName = "JohnnyBoy"
 
-   
+
 
 
       const message = `# Overview
@@ -181,8 +181,7 @@ const SignCall = () => {
 
 
 
-  // console.log(data)
-  // console.log(userVisibleData)
+
 
 
   return (
@@ -223,7 +222,7 @@ const SignCall = () => {
         {
           data && accept && pdfBlob &&
           <div style={{ wordBreak: "break-word" }}>
-            <RenderDataComponentSigner pdf={pdfBlob}  data={data} orderTime={new Date()} />
+            <RenderDataComponentSigner pdf={pdfBlob} data={data} orderTime={new Date()} />
           </div>
         }
       </div>

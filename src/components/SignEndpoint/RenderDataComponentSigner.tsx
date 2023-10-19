@@ -56,6 +56,7 @@ const RenderDataComponentSigner: React.FC<RenderDataProps> = ({ data, orderTime,
     const [fileUpload, setFileUpload] = useState<boolean>(false);
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [location, setLocation] = useState<object | null>(null);
+    const [canceledRequest, setCanceledRequest] = useState<boolean>(false);
 
     const getQrAuthCode = (qrStartSecret: string, time: number): string => {
         const keyByteArray = CryptoJS.enc.Utf8.parse(qrStartSecret);
@@ -99,34 +100,38 @@ const RenderDataComponentSigner: React.FC<RenderDataProps> = ({ data, orderTime,
 
 
     useEffect(() => {
-        const interval = setInterval(() => {
-            if (apiContent && (apiContent.status === 'failed' || apiContent.status === 'complete')) {
-                //console.log(apiContent);
-                clearInterval(interval);
-                return;
-            }
 
-            fetch('https://localhost:7080/api/Collect', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderRef: data.orderRef }),
-            })
-                .then(response => response.json())
-                .then(apiData => {
-                    //console.log(apiData);
-                    getGeoLocation();
-                    const userMessage = UserMessages(apiData);
-                    setUserMessage(userMessage);
-                    setHintCode(apiData.hintCode ? apiData.hintCode : null);
-                    setApiContent(apiData);
-                    //InMemoryJwtManager.setToken(apiData.token);
+        if (canceledRequest === false) {
+
+            const interval = setInterval(() => {
+                if (apiContent && (apiContent.status === 'failed' || apiContent.status === 'complete')) {
+                    //console.log(apiContent);
+                    clearInterval(interval);
+                    return;
+                }
+
+                fetch('https://localhost:7080/api/Collect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderRef: data.orderRef }),
                 })
-                .catch(error => {
-                    console.error('API request failed:', error);
-                });
-        }, 2000);
+                    .then(response => response.json())
+                    .then(apiData => {
+                        //console.log(apiData);
+                        getGeoLocation();
+                        const userMessage = UserMessages(apiData);
+                        setUserMessage(userMessage);
+                        setHintCode(apiData.hintCode ? apiData.hintCode : null);
+                        setApiContent(apiData);
+                        //InMemoryJwtManager.setToken(apiData.token);
+                    })
+                    .catch(error => {
+                        console.error('API request failed:', error);
+                    });
+            }, 2000);
 
-        return () => clearInterval(interval);
+            return () => clearInterval(interval);
+        }
     }, [data, apiContent]);
 
 
@@ -204,6 +209,23 @@ const RenderDataComponentSigner: React.FC<RenderDataProps> = ({ data, orderTime,
         window.location.href = url;
     };
 
+    const cancelRequest = (): void => {
+
+
+        fetch('https://localhost:7080/api/Cancel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderRef: data.orderRef }),
+        })
+            .then(response => response.json())
+            .then(canceled => {
+                console.log(canceled);
+                if (Object.keys(canceled).length === 0) {
+                    setCanceledRequest(true);
+                }
+            })
+    }
+
 
 
 
@@ -223,7 +245,12 @@ const RenderDataComponentSigner: React.FC<RenderDataProps> = ({ data, orderTime,
                     </Button>
                 </Col>
             </Row>
-            {apiContent && (
+            <Row>
+                <Col className='mt-3'>
+                    <Button variant="secondary" onClick={cancelRequest} >Cancel Request</Button>
+                </Col>
+            </Row>
+            {apiContent && !canceledRequest && (
                 <Row>
                     <Col>
                         {apiContent.status === 'complete' && apiContent.token &&
@@ -242,6 +269,10 @@ const RenderDataComponentSigner: React.FC<RenderDataProps> = ({ data, orderTime,
                     </Col>
                 </Row>
             )}
+
+            {canceledRequest === true &&
+                <div>Request was canceled</div>
+            }
 
             {pdfUrl &&
                 <div>

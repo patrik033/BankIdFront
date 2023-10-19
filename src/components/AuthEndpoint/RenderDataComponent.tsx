@@ -34,6 +34,8 @@ const RenderDataComponent: React.FC<RenderDataProps> = ({ data, orderTime }) => 
     const [apiContent, setApiContent] = useState<ApiResponse | null>(null);
     const [hintCode, setHintCode] = useState<string | null>(null);
     const [userMessage, setUserMessage] = useState<string | null>(null);
+    const [canceledRequest, setCanceledRequest] = useState<boolean>(false);
+
 
     const getQrAuthCode = (qrStartSecret: string, time: number): string => {
         const keyByteArray = CryptoJS.enc.Utf8.parse(qrStartSecret);
@@ -41,49 +43,75 @@ const RenderDataComponent: React.FC<RenderDataProps> = ({ data, orderTime }) => 
         return hmac.toString(CryptoJS.enc.Hex);
     };
 
+    const cancelRequest = (): void => {
+
+
+        fetch('https://localhost:7080/api/Cancel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderRef: data.orderRef }),
+        })
+            .then(response => response.json())
+            .then(canceled => {
+                console.log(canceled);
+                if (Object.keys(canceled).length === 0) {
+                    setCanceledRequest(true);
+                }
+            })
+    }
+
     useEffect(() => {
-        const updateQRData = () => {
-            const orderTimes = orderTime;
-            const newQrTime = Math.floor((new Date().getTime() - orderTimes.getTime()) / 1000);
-            setQrTime(newQrTime);
+        if (canceledRequest === false) {
 
-            const qrAuthCode = getQrAuthCode(data.qrStartSecret, newQrTime);
+            const updateQRData = () => {
+                const orderTimes = orderTime;
+                const newQrTime = Math.floor((new Date().getTime() - orderTimes.getTime()) / 1000);
+                setQrTime(newQrTime);
 
-            const qrData = `bankid.${data.qrStartToken}.${newQrTime}.${qrAuthCode}`;
-            setQrData(qrData);
-        };
+                const qrAuthCode = getQrAuthCode(data.qrStartSecret, newQrTime);
 
-        updateQRData();
+                const qrData = `bankid.${data.qrStartToken}.${newQrTime}.${qrAuthCode}`;
+                setQrData(qrData);
+            };
+
+            updateQRData();
+        }
     }, [data, orderTime]);
 
     useEffect(() => {
-        const interval = setInterval(() => {
-            if (apiContent && (apiContent.status === 'failed' || apiContent.status === 'complete')) {
-                console.log(apiContent);
-                clearInterval(interval);
-                return;
-            }
 
-            fetch('https://localhost:7080/api/Collect', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderRef: data.orderRef }),
-            })
-                .then(response => response.json())
-                .then(apiData => {
-                    console.log(apiData);
-                    const userMessage = UserMessages(apiData);
-                    setUserMessage(userMessage);
-                    setHintCode(apiData.hintCode ? apiData.hintCode : null);
-                    setApiContent(apiData);
-                    InMemoryJwtManager.setToken(apiData.token);
-                })
-                .catch(error => {
-                    console.error('API request failed:', error);
-                });
-        }, 2000);
+        if (canceledRequest === false) {
+            const interval = setInterval(() => {
+                if (apiContent && (apiContent.status === 'failed' || apiContent.status === 'complete')) {
+                    console.log(apiContent);
+                    clearInterval(interval);
+                    return;
+                }
+                else {
+                    console.log(canceledRequest)
 
-        return () => clearInterval(interval);
+
+                    fetch('https://localhost:7080/api/Collect', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ orderRef: data.orderRef }),
+                    })
+                        .then(response => response.json())
+                        .then(apiData => {
+                            // console.log(apiData);
+                            const userMessage = UserMessages(apiData);
+                            setUserMessage(userMessage);
+                            setHintCode(apiData.hintCode ? apiData.hintCode : null);
+                            setApiContent(apiData);
+                            InMemoryJwtManager.setToken(apiData.token);
+                        })
+                        .catch(error => {
+                            console.error('API request failed:', error);
+                        });
+                }
+            }, 2000);
+            return () => clearInterval(interval);
+        }
     }, [data, apiContent]);
 
     const startFromFile = () => {
@@ -106,7 +134,12 @@ const RenderDataComponent: React.FC<RenderDataProps> = ({ data, orderTime }) => 
                     </Button>
                 </Col>
             </Row>
-            {apiContent && (
+            <Row>
+                <Col className='mt-3'>
+                    <Button variant="secondary" onClick={cancelRequest} >Cancel Request</Button>
+                </Col>
+            </Row>
+            {apiContent && !canceledRequest && (
                 <Row>
                     <Col>
                         {apiContent.status === 'complete' && apiContent.token ? (
@@ -128,6 +161,9 @@ const RenderDataComponent: React.FC<RenderDataProps> = ({ data, orderTime }) => 
                     </Col>
                 </Row>
             )}
+            {canceledRequest === true &&
+                <div>Request was canceled</div>
+            }
         </Container>
     );
 };
