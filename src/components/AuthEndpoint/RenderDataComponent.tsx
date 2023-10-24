@@ -7,6 +7,7 @@ import Col from 'react-bootstrap/Col';
 import Button from 'react-bootstrap/Button';
 import InMemoryJwtManager from './CallAuth/InMemoryJwtManager';
 import { UserMessages } from '../UserMessages/UserMessages';
+import { isIOS, isAndroid, isChrome, isSafari } from 'react-device-detect';
 
 interface RenderDataProps {
     data: BankIdAuth;
@@ -37,6 +38,39 @@ const RenderDataComponent: React.FC<RenderDataProps> = ({ data, orderTime }) => 
     const [canceledRequest, setCanceledRequest] = useState<boolean>(false);
 
 
+
+
+
+
+
+    const initiateAuthentication = () => {
+        fetch('https://localhost:7080/api/Collect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderRef: data.orderRef }),
+        })
+            .then(response => response.json())
+            .then(apiData => {
+                const userMessage = UserMessages(apiData);
+                setUserMessage(userMessage);
+                setHintCode(apiData.hintCode ? apiData.hintCode : null);
+                setApiContent(apiData);
+                InMemoryJwtManager.setToken(apiData.token);
+
+                // Retrieve the return URL from the URL parameters
+                const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+
+                // Redirect the user back to the return URL
+                if (apiData.status === 'complete' && returnUrl) {
+                    //window.location.href = returnUrl;
+                }
+            })
+            .catch(error => {
+                console.error('API request failed:', error);
+            });
+    };
+
+
     const getQrAuthCode = (qrStartSecret: string, time: number): string => {
         const keyByteArray = CryptoJS.enc.Utf8.parse(qrStartSecret);
         const hmac = CryptoJS.HmacSHA256(time.toString(), keyByteArray);
@@ -44,8 +78,6 @@ const RenderDataComponent: React.FC<RenderDataProps> = ({ data, orderTime }) => 
     };
 
     const cancelRequest = (): void => {
-
-
         fetch('https://localhost:7080/api/Cancel', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -115,8 +147,26 @@ const RenderDataComponent: React.FC<RenderDataProps> = ({ data, orderTime }) => 
     }, [data, apiContent]);
 
     const startFromFile = () => {
-        const url = `bankid:///?autostarttoken=${data.autoStartToken}&redirect=${encodeURIComponent('http://127.0.0.1:5173/')}`;
-        window.location.href = url;
+
+        //const returnUrl = encodeURIComponent(window.location.href);
+        //TODO: fix the returnUrl
+        const returnUrl = '';
+        if (isIOS || isAndroid) {
+
+            if (isChrome || isSafari) {
+                const url = `https://app.bankid.com/?autostarttoken=${data.autoStartToken}&redirect=${returnUrl}`;
+                window.location.href = url;
+            }
+        }
+        else {
+            console.log('not mobile')
+            const url = `bankid:///?autostarttoken=${data.autoStartToken}&redirect=${returnUrl}`;
+            console.log(url);
+            console.log(returnUrl)
+            //window.location.href = url;
+        }
+
+        initiateAuthentication();
     };
 
     return (

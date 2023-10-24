@@ -6,6 +6,7 @@ import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Button from 'react-bootstrap/Button';
 import { UserMessages } from '../UserMessages/UserMessages';
+import { isAndroid, isChrome, isIOS, isSafari } from 'react-device-detect';
 
 interface RenderDataProps {
     data: BankIdAuth;
@@ -55,8 +56,8 @@ const RenderDataComponentSigner: React.FC<RenderDataProps> = ({ data, orderTime,
     const [userMessage, setUserMessage] = useState<string | null>(null);
     const [fileUpload, setFileUpload] = useState<boolean>(false);
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-    const [location, setLocation] = useState<object | null>(null);
     const [canceledRequest, setCanceledRequest] = useState<boolean>(false);
+
 
     const getQrAuthCode = (qrStartSecret: string, time: number): string => {
         const keyByteArray = CryptoJS.enc.Utf8.parse(qrStartSecret);
@@ -82,6 +83,33 @@ const RenderDataComponentSigner: React.FC<RenderDataProps> = ({ data, orderTime,
         }
     }
 
+    const initiateAuthentication = () => {
+        fetch('https://localhost:7080/api/Collect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderRef: data.orderRef }),
+        })
+            .then(response => response.json())
+            .then(apiData => {
+                const userMessage = UserMessages(apiData);
+                setUserMessage(userMessage);
+                setHintCode(apiData.hintCode ? apiData.hintCode : null);
+                setApiContent(apiData);
+
+
+                // Retrieve the return URL from the URL parameters
+                const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+
+                // Redirect the user back to the return URL
+                if (apiData.status === 'complete' && returnUrl) {
+                    //window.location.href = returnUrl;
+                }
+            })
+            .catch(error => {
+                console.error('API request failed:', error);
+            });
+    };
+
     useEffect(() => {
         const updateQRData = () => {
             const orderTimes = orderTime;
@@ -96,8 +124,6 @@ const RenderDataComponentSigner: React.FC<RenderDataProps> = ({ data, orderTime,
 
         updateQRData();
     }, [data, orderTime]);
-
-
 
     useEffect(() => {
 
@@ -118,7 +144,7 @@ const RenderDataComponentSigner: React.FC<RenderDataProps> = ({ data, orderTime,
                     .then(response => response.json())
                     .then(apiData => {
                         //console.log(apiData);
-                        getGeoLocation();
+
                         const userMessage = UserMessages(apiData);
                         setUserMessage(userMessage);
                         setHintCode(apiData.hintCode ? apiData.hintCode : null);
@@ -141,9 +167,6 @@ const RenderDataComponentSigner: React.FC<RenderDataProps> = ({ data, orderTime,
             let user = apiContent.response.completionData.user;
             let form = new FormData();
 
-            if (location != null) {
-                console.log(location)
-            }
             form.append("file", pdf);
             form.append("user", JSON.stringify(user))
             fetch('https://localhost:7080/api/Sign/upload', {
@@ -172,46 +195,29 @@ const RenderDataComponentSigner: React.FC<RenderDataProps> = ({ data, orderTime,
         }
     }, [pdf, apiContent, fileUpload]);
 
-    const showPosition = (position: any) => {
-        const lat = position.coords.latitude;
-        const lon = position.coords.longitude;
+    const startFromFile = () => {
+        //const returnUrl = encodeURIComponent(window.location.href);
+        //TODO: fix the returnUrl
+        const returnUrl = '';
+        if (isIOS || isAndroid) {
 
-
-        const location: {
-            latitude: number;
-            longitude: number;
-        } = {
-            latitude: lat,
-            longitude: lon,
-        }
-
-        setLocation(location);
-    }
-
-    const errorLocation = (() => {
-        console.log("Error getting location");
-    })
-
-
-    const getGeoLocation = () => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(showPosition, errorLocation);
+            if (isChrome || isSafari) {
+                const url = `https://app.bankid.com/?autostarttoken=${data.autoStartToken}&redirect=${returnUrl}`;
+                window.location.href = url;
+            }
         }
         else {
-            alert("Geolocation is not supported by this browser.");
+            console.log('not mobile')
+            const url = `bankid:///?autostarttoken=${data.autoStartToken}&redirect=${returnUrl}`;
+            console.log(url);
+            console.log(returnUrl)
+            //window.location.href = url;
         }
-    }
 
-
-
-    const startFromFile = () => {
-        const url = `bankid:///?autostarttoken=${data.autoStartToken}&redirect=${encodeURIComponent('http://127.0.0.1:5173/')}`;
-        window.location.href = url;
+        initiateAuthentication();
     };
 
     const cancelRequest = (): void => {
-
-
         fetch('https://localhost:7080/api/Cancel', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -228,8 +234,6 @@ const RenderDataComponentSigner: React.FC<RenderDataProps> = ({ data, orderTime,
 
 
 
-
-
     return (
         <Container>
             <Row>
@@ -238,6 +242,7 @@ const RenderDataComponentSigner: React.FC<RenderDataProps> = ({ data, orderTime,
                     <QRCode value={qrData} />
                 </Col>
             </Row>
+
             <Row>
                 <Col>
                     <Button variant="primary" onClick={startFromFile}>
@@ -254,10 +259,7 @@ const RenderDataComponentSigner: React.FC<RenderDataProps> = ({ data, orderTime,
                 <Row>
                     <Col>
                         {apiContent.status === 'complete' && apiContent.token &&
-                            <div>
-                                <p>API Status: Success!</p>
-                            </div>
-
+                            <div><p>API Status: Success!</p></div>
                         }
                         {hintCode &&
                             <p>Hint code: {hintCode}</p>
@@ -265,7 +267,6 @@ const RenderDataComponentSigner: React.FC<RenderDataProps> = ({ data, orderTime,
                         {userMessage &&
                             <p>User message: {userMessage}</p>
                         }
-
                     </Col>
                 </Row>
             )}
@@ -278,16 +279,10 @@ const RenderDataComponentSigner: React.FC<RenderDataProps> = ({ data, orderTime,
                 <div>
                     <Row>
                         <Col>
-                            <Button variant="primary" onClick={openPdf}>
-                                Open File
-                            </Button>
-
+                            <Button variant="primary" onClick={openPdf}>Open File</Button>
                         </Col>
                         <Col>
-                            <Button variant="primary" onClick={downloadPdf}>
-                                Download File
-                            </Button>
-
+                            <Button variant="primary" onClick={downloadPdf}>Download File</Button>
                         </Col>
                     </Row>
                 </div>

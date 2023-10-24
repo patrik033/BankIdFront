@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-//import RenderDataComponent from './RenderDataComponent';
 import Navbar from '../Navbar/Navbar';
 import Container from 'react-bootstrap/Container';
 import Row from 'react-bootstrap/Row';
@@ -11,8 +10,6 @@ import { pdfjs, Document } from 'react-pdf';
 import RenderDataComponentSigner from './RenderDataComponentSigner';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/legacy/build/pdf.worker.min.js`;
-
-
 
 interface BankIdAuth {
   orderRef: string;
@@ -37,29 +34,14 @@ interface PdfMetadata {
   Producer: string;
 }
 
-// interface SignRequest {
-//   endUserIp: string;
-//   requirement?: object;
-//   userVisibleData: string;
-//   userNonVisibleData?: string;
-//   userVisibleDataFormat?: string;
-// }
-
 const SignCall = () => {
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [accept, setAccept] = useState<boolean>(false);
   const [metadata, setMetadata] = useState(null);
   const [userVisibleData, setUserVisibleData] = useState(null);
   const [data, setData] = useState<BankIdAuth>({ orderRef: '', autoStartToken: '', qrStartToken: '', qrStartSecret: '' } as BankIdAuth);
-
-  useEffect(() => {
-    fetch('https://localhost:7080/api/Sign')
-      .then(response => response.blob())
-      .then(blob => setPdfBlob(blob))
-      .catch(error => {
-        console.error('Error fetching PDF file:', error);
-      });
-  }, []);
+  const [selectedPdf, setSelectedPdf] = useState<File | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   const handleDownload = () => {
     if (pdfBlob) {
@@ -120,7 +102,6 @@ const SignCall = () => {
     } catch (error) {
       console.error('Error fetching data:', error);
     }
-
   };
 
   const onDocumentLoadSuccess = async (pdf: any) => {
@@ -129,14 +110,7 @@ const SignCall = () => {
 
   useEffect(() => {
     if (metadata) {
-
-
       const parsedMetadata = parsePdfMetadata(metadata.info);
-
-      //const userName = "JohnnyBoy"
-
-
-
 
       const message = `# Overview
       By signing this document, you agree to the following contents of the document:
@@ -164,8 +138,6 @@ const SignCall = () => {
       ---`;
 
 
-
-      // const encodedTextToUtf8 = encodeURI(some)
       const encodedToBase64 = btoa(message)
       setUserVisibleData(encodedToBase64)
     }
@@ -178,21 +150,48 @@ const SignCall = () => {
   }, [userVisibleData, accept])
 
 
+  const handlePdfChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files && event.target.files[0];
 
+    if (selectedFile) {
+      setPdfBlob(selectedFile);
+      setSelectedPdf(selectedFile);
 
-
-
+      // Read the contents of the selected file and display as a preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        // Use the reader.result to display the PDF preview
+        // For example, you can set it in state and render an <embed> or <iframe> tag
+        const pdfPreviewUrl = reader.result as string;
+        setPdfUrl(pdfPreviewUrl);
+      };
+      reader.readAsDataURL(selectedFile);
+    }
+  };
 
 
   return (
     <>
       <Navbar />
-      {pdfBlob &&
-        <div>
-          <Document file={pdfBlob} onLoadSuccess={onDocumentLoadSuccess}>
-          </Document>
-        </div>
-      }
+      <Container>
+
+        <Row>
+          <Col>
+
+            <Form.Group controlId='formFile' className='mb-3'>
+              <Form.Label>Upload PDF</Form.Label>
+              <Form.Control type='file' accept=".pdf" onChange={handlePdfChange} />
+            </Form.Group>
+
+            {selectedPdf && pdfUrl && pdfBlob && (
+              <div>
+                <Document file={pdfBlob} onLoadSuccess={onDocumentLoadSuccess}>
+                </Document>
+              </div>
+            )}
+          </Col>
+        </Row>
+      </Container>
 
       <div>
         <Container>
