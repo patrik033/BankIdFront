@@ -111,19 +111,32 @@ const RenderDataComponentSigner: React.FC<RenderDataProps> = ({ data, orderTime,
     };
 
     useEffect(() => {
-        const updateQRData = () => {
-            const orderTimes = orderTime;
-            const newQrTime = Math.floor((new Date().getTime() - orderTimes.getTime()) / 1000);
-            setQrTime(newQrTime);
+        if (canceledRequest === false && apiContent && apiContent.status === "pending" && data.qrStartToken && data.qrStartSecret) {
 
-            const qrAuthCode = getQrAuthCode(data.qrStartSecret, newQrTime);
+            const updateQRData = () => {
+                if (data.qrStartToken && apiContent.status === "pending") {
+                    const orderTimes = orderTime;
+                    const newQrTime = Math.floor((new Date().getTime() - orderTimes.getTime()) / 1000);
+                    setQrTime(newQrTime);
 
-            const qrData = `bankid.${data.qrStartToken}.${newQrTime}.${qrAuthCode}`;
-            setQrData(qrData);
-        };
+                    const qrAuthCode = getQrAuthCode(data.qrStartSecret, newQrTime);
 
-        updateQRData();
-    }, [data, orderTime]);
+                    const qrData = `bankid.${data.qrStartToken}.${newQrTime}.${qrAuthCode}`;
+
+                    setQrData(qrData);
+                }
+            };
+
+            // Call the updateQRData function immediately
+            updateQRData();
+
+            // Set up a recurring timer to call the updateQRData function every 2 seconds
+            const timerId = setInterval(updateQRData, 2000);
+
+            // Clean up the timer when the component is unmounted or when canceledRequest becomes true
+            return () => clearInterval(timerId);
+        }
+    }, [data, orderTime, canceledRequest, apiContent]);
 
     useEffect(() => {
 
@@ -238,8 +251,12 @@ const RenderDataComponentSigner: React.FC<RenderDataProps> = ({ data, orderTime,
         <Container>
             <Row>
                 <Col>
-                    <p>Generated QR Data:</p>
-                    <QRCode value={qrData} />
+                    {qrData.length > 0 &&
+                        <>
+                            <p>Generated QR Data:</p>
+                            <QRCode value={qrData} />
+                        </>
+                    }
                 </Col>
             </Row>
 
